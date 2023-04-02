@@ -92,7 +92,7 @@ void DrawMandelbrot ()
         }
         time = clock () - last_time;
         last_time = clock ();
-        sprintf (fps_str, "%lf", 1000. / time);
-        txTextOut (W - 40, H - 20, fps_str);
+        sprintf (fps_str, "%.2lf", 1000. / time);
+        txTextOut (W - 60, H - 20, fps_str);
     }
 }
