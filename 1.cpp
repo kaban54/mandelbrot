@@ -1,4 +1,4 @@
-#include <TXLib.h>
+#include <SFML/Graphics.hpp>
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
@@ -6,17 +6,17 @@
 
 void DrawMandelbrot ();
 
-const int W = 600;
-const int H = 600;
+const char font_file_name [] = "Minecraft-Regular.ttf";
+const size_t BUFSIZE = 64;
+
+const int W = 800;
+const int H = 800;
 const float MAXR2 = 100;
 const int MAXITER = 256;
 
 int main ()
 {
-    txCreateWindow (W, H);
-
     DrawMandelbrot ();
-
     return 0;
 }
 
@@ -35,14 +35,43 @@ void DrawMandelbrot ()
 
     float x0   = 0, y0   = 0;
     int   xpix = 0, ypix = 0;
-    
-    int last_time = clock ();
-    int time = 0;
 
-    char fps_str [64] = "";
+    sf::Clock clk;
 
-    while (!txGetAsyncKeyState (VK_ESCAPE))
+    sf::Sprite sprite;
+    sf::Texture texture;
+    sf::Image img;
+    img.create (W, H);
+
+    sf::Font font;
+    sf::Text fps;
+    font.loadFromFile (font_file_name);
+    fps.setPosition (0, 0);
+    fps.setFont (font);
+    fps.setFillColor (sf::Color::Green);
+    fps.setCharacterSize (20);
+    char fps_str [BUFSIZE] = "";
+
+    int frames_count = 0;
+
+    sf::RenderWindow window(sf::VideoMode(W, H), "eeeeeeee");
+    clk.restart ();
+
+    while (window.isOpen ())
     {
+        sf::Event event;
+        while (window.pollEvent (event))
+        {
+            if (event.type == sf::Event::Closed)
+                window.close ();
+            
+            if (event.type == sf::Event::KeyPressed)
+            {
+                if (event.key.code == sf::Keyboard::Escape)
+                    window.close ();
+            }
+        }
+
         for (ypix = 0, y0 = minY; ypix < H ; ypix++, y0 += dy)
         {
             for (xpix = 0, x0 = minX; xpix < W; xpix++, x0 += dx)
@@ -63,13 +92,30 @@ void DrawMandelbrot ()
                     y = 2 * xy  + y0;
                 }
 
-                if (count == MAXITER) txSetPixel (xpix, ypix, RGB (0, 0, 0));
-                else                  txSetPixel (xpix, ypix, RGB (count % 256, 0, count % 256));
+                #ifdef _DRAW
+                if (count == MAXITER) img.setPixel (xpix, ypix, sf::Color::Black);
+                else                  img.setPixel (xpix, ypix, sf::Color (count % 256, 0, count % 256));
+                #endif
             }
         }
-        time = clock () - last_time;
-        last_time = clock ();
-        sprintf (fps_str, "%.2lf", 1000. / time);
-        txTextOut (W - 60, H - 20, fps_str);
+
+        frames_count++;
+        
+        if (clk.getElapsedTime().asSeconds() >= 1)
+        {
+            sprintf (fps_str, "%d", frames_count);
+            fps.setString (fps_str);
+            puts (fps_str);
+            frames_count = 0;
+            clk.restart();
+        }
+
+        texture.loadFromImage (img);
+        sprite.setTexture (texture);
+
+        window.clear ();
+        window.draw (sprite);
+        window.draw (fps);
+        window.display ();
     }
 }
