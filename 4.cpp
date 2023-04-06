@@ -18,7 +18,7 @@ const size_t BUFSIZE = 64;
 
 const int W = 800;
 const int H = 800;
-const float MAXR2 = 100;
+const __m256 MAXR2 = _mm256_set1_ps (100);
 const int MAXITER = 256;
 
 int main ()
@@ -101,12 +101,13 @@ void DrawMandelbrot ()
                     ps8 r2 = {};
                     r2.m256 = _mm256_add_ps (x2, y2);
 
+                    out |= _mm256_movemask_ps (_mm256_cmp_ps (r2.m256, MAXR2, _CMP_GE_OQ));
+
                     for (i = 0; i < 8; i++)
                     {
-                        if (!(out & (1 << i)) && r2.arr [i] > MAXR2)
+                        if (out & (1 << i) && count [i] == -1)
                         {
                             count [i] = iter;
-                            out |= 1 << i;
                         }
                     }
 
@@ -135,7 +136,7 @@ void DrawMandelbrot ()
         {
             sprintf (fps_str, "%d", frames_count);
             fps.setString (fps_str);
-            puts (fps_str);
+            //puts (fps_str);
             frames_count = 0;
             clk.restart();
         }
