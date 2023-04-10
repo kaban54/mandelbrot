@@ -13,6 +13,12 @@ union ps8
     float arr [8];
 };
 
+union int8
+{
+    __m256i m256i;
+    int arr [8];
+};
+
 const char font_file_name [] = "Minecraft-Regular.ttf";
 const size_t BUFSIZE = 64;
 
@@ -20,6 +26,11 @@ const int W = 800;
 const int H = 800;
 const __m256 MAXR2 = _mm256_set1_ps (100);
 const int MAXITER = 256;
+
+const __m256i EIGHT_ONES_I    = _mm256_set1_epi32 (1);
+const __m256i EIGHT_ZEROES_I  = _mm256_set1_epi32 (0);
+const __m256  EIGHT_ZEROES_PS = _mm256_set1_ps    (0);
+const __m256  ALL_OUT         = _mm256_castsi256_ps (_mm256_set1_epi32 (0xffffffff));
 
 int main ()
 {
@@ -90,41 +101,39 @@ void DrawMandelbrot ()
                 __m256 y0 = _mm256_set1_ps (y);
                 __m256 ynext = y0;
 
-                int count [8] = {-1, -1, -1, -1, -1, -1, -1, -1};
+                int8 count = {};
 
-                int out = 0;
+                int out_mask  = 0;
+                __m256  out   = EIGHT_ZEROES_PS;
+                __m256i iter8 = EIGHT_ZEROES_I;
 
                 for (int iter = 0; iter < MAXITER; iter++)
                 {
                     __m256 x2 = _mm256_mul_ps (xnext, xnext);
                     __m256 y2 = _mm256_mul_ps (ynext, ynext);
-                    ps8 r2 = {};
-                    r2.m256 = _mm256_add_ps (x2, y2);
-
-                    out |= _mm256_movemask_ps (_mm256_cmp_ps (r2.m256, MAXR2, _CMP_GE_OQ));
-
-                    for (i = 0; i < 8; i++)
-                    {
-                        if (out & (1 << i) && count [i] == -1)
-                        {
-                            count [i] = iter;
-                        }
-                    }
-
-                    if (out == 0b11111111) break;
-
                     __m256 xy = _mm256_mul_ps (xnext, ynext);
+                    __m256 r2 = _mm256_add_ps (x2, y2);
+
+                    __m256 out_this_iter = _mm256_andnot_ps (out, _mm256_cmp_ps (r2, MAXR2, _CMP_GE_OQ));
+
+                    out       = _mm256_or_ps (out,  out_this_iter);
+                    out_mask |= _mm256_movemask_ps (out_this_iter);
+
+                    count.m256i = _mm256_or_si256 (count.m256i, _mm256_and_si256 (iter8, _mm256_castps_si256 (out_this_iter)));
                     
+                    if (out_mask == 0b11111111) break;
+
                     xnext = _mm256_add_ps (_mm256_sub_ps (x2, y2), x0);
                     ynext = _mm256_add_ps (_mm256_add_ps (xy, xy), y0);
-                    //sf::sleep (sf::Time (sf::Int64 (999999999999)));
+
+                    iter8 = _mm256_add_epi32 (iter8, EIGHT_ONES_I);
                 }
 
                 #ifdef _DRAW
                 for (i = 0; i < 8; i++)
                 {
-                    if (count [i] == -1) img.setPixel (xpix + 7 - i, ypix, sf::Color::Black);
-                    else                 img.setPixel (xpix + 7 - i, ypix, sf::Color (count [i] % 256, 0, count [i] % 256));
+                    if (count.arr [i] == 0) img.setPixel (xpix + 7 - i, ypix, sf::Color (0, 0, 0));
+                    else                    img.setPixel (xpix + 7 - i, ypix, sf::Color (count.arr [i] % 256, 0, count.arr [i] % 256 / 2));
                 }
                 #endif
             }
